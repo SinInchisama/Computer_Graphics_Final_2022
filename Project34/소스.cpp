@@ -5,9 +5,9 @@
 #include <gl/glut.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <gl/glm/glm.hpp>
-#include <gl/glm/ext.hpp>
-#include <gl/glm/gtc/matrix_transform.hpp>
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <random>
 
 typedef struct Box {
@@ -72,7 +72,7 @@ bool ra, Drop = true, What_view, Mani,Vani,rani,rminus,ani_1, ani_3;
 int xcount = 20, Ycount = 20;
 float yz = 0.0f;
 Box All_Box[20][20];
-Player player;
+Player player[2];
 
 GLUquadricObj* qobj = gluNewQuadric();
 
@@ -290,7 +290,7 @@ void drawScene() {
 
 
 	
-	view = glm::lookAt(player.cameraPos, player.cameraPos + player.cameraDirection, cameraUp);
+	view = glm::lookAt(player[0].cameraPos, player[0].cameraPos + player[0].cameraDirection, cameraUp);
 	
 
 	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
@@ -298,6 +298,11 @@ void drawScene() {
 	Draw_filed();
 
 	glViewport(0, 0, 630, 700);
+
+	view = glm::lookAt(player[1].cameraPos, player[1].cameraPos + player[1].cameraDirection, cameraUp);
+
+
+	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
 
 	Draw_filed();
 	glViewport(430, 500, 200, 200);
@@ -332,12 +337,14 @@ char* filetobuf(const char* file)
 
 void TimerFunction(int value) {
 
-	player.Move[0] += cos(glm::radians(-player.lotate)) * 0.02 * player.x;			// 플레이어 좌우 움직임 할때 쓰는 계산
-	player.Move[2] += sin(glm::radians(-player.lotate)) * 0.02 * player.x;
-	player.Move[0] += sin(glm::radians(player.lotate)) * 0.02 * player.z;			// 플레이어 위 아래 움직임 할때 쓰는 계산
-	player.Move[2] += cos(glm::radians(player.lotate)) * 0.02 * player.z;
-	Box_crash(&player);																// 움직이고나서 해당 위치 블록 체크	(현재는 배열로 체크하는 중. 배열로 체크시 각 꼭짓점마다 이전 위치 저장해줘야할듯?)
-	player_Camera(&player);																// 플레이어 카메라 위치 계산.
+	for (int i = 0; i < 2; i++) {
+		player[i].Move[0] += cos(glm::radians(-player[i].lotate)) * 0.02 * player[i].x;			// 플레이어 좌우 움직임 할때 쓰는 계산
+		player[i].Move[2] += sin(glm::radians(-player[i].lotate)) * 0.02 * player[i].x;
+		player[i].Move[0] += sin(glm::radians(player[i].lotate)) * 0.02 * player[i].z;			// 플레이어 위 아래 움직임 할때 쓰는 계산
+		player[i].Move[2] += cos(glm::radians(player[i].lotate)) * 0.02 * player[i].z;
+		Box_crash(&player[i]);																// 움직이고나서 해당 위치 블록 체크	(현재는 배열로 체크하는 중. 배열로 체크시 각 꼭짓점마다 이전 위치 저장해줘야할듯?)
+		player_Camera(&player[i]);																// 플레이어 카메라 위치 계산.
+	}
 
 	glutTimerFunc(50, TimerFunction, 1);
 	glutPostRedisplay();
@@ -345,10 +352,10 @@ void TimerFunction(int value) {
 
 GLvoid Keyboard(unsigned char key, int x, int y) {
 	if (key == 'a') {
-			player.lotate += 10;					// 플레이어 돌리기
+			player[0].lotate += 10;					// 플레이어 돌리기
 	}
 	else if (key == 'd') {
-		player.lotate -= 10;
+		player[0].lotate -= 10;
 	}
 	else if (key == 'q')
 		exit(0);
@@ -359,16 +366,16 @@ void SKeyDownboard(int key, int x, int y) {
 	switch (key) {
 	
 	case GLUT_KEY_LEFT:
-		player.x = -1;
+		player[0].x = -1;
 		break;
 	case GLUT_KEY_RIGHT:
-		player.x = +1;
+		player[0].x = +1;
 		break;
 	case GLUT_KEY_UP:
-		player.z = -1;
+		player[0].z = -1;
 		break;
 	case GLUT_KEY_DOWN:
-		player.z = +1;
+		player[0].z = +1;
 	}
 }
 
@@ -376,18 +383,18 @@ void SKeyUpboard(int key, int x, int y) {
 	switch (key) {
 
 	case GLUT_KEY_LEFT:
-		player.x = 0;
+		player[0].x = 0;
 
 		break;
 	case GLUT_KEY_RIGHT:
-		player.x = 0;
+		player[0].x = 0;
 		break;
 	case GLUT_KEY_UP:
-		player.z = 0;
+		player[0].z = 0;
 
 		break;
 	case GLUT_KEY_DOWN:
-		player.z = 0;
+		player[0].z = 0;
 
 	}
 }
@@ -454,34 +461,38 @@ void Draw_filed() {
 	glm::mat4 Scale = glm::mat4(1.0f);
 
 
-
+	for (int i = 0; i < 2; i++) {
 		TR = glm::mat4(1.0f);					// 플레이어를 그려주는 부분.
 		Tx = glm::mat4(1.0f);
 		Scale = glm::mat4(1.0f);
 		glm::mat4 Rotate = glm::mat4(1.0f);
 
-		glUniform3f(modelLocation1, player.PColor[0], player.PColor[1], player.PColor[2]);
+		glUniform3f(modelLocation1, player[i].PColor[0], player[i].PColor[1], player[i].PColor[2]);
 
-		Rotate = glm::rotate(Rotate, glm::radians(player.lotate), glm::vec3(0.0, 1.0, 0.0)); //--- z축에 대하여 회전 행렬
-		Scale = glm::scale(Scale, player.Pscale); //		플레이어
-		Tx = glm::translate(Tx, player.Plocate + player.Move);
+		Rotate = glm::rotate(Rotate, glm::radians(player[i].lotate), glm::vec3(0.0, 1.0, 0.0)); //--- z축에 대하여 회전 행렬
+		Scale = glm::scale(Scale, player[i].Pscale); //		플레이어
+		Tx = glm::translate(Tx, player[i].Plocate + player[i].Move);
 		TR = Tx * Rotate * Scale * TR;
 
 		glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(TR)); //--- modelTransform 변수에 변환 값 적용하기
 		glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, (GLvoid*)(sizeof(GLuint) * 0));
+	}
 	
 }
 
 void playerinit() {
-	player.PColor = { 1.0,1.0,0.0 };
-	player.Plocate = All_Box[0][0].Blocate;
-	player.Plocate[1] = 0.0f;
-	player.Pscale = { 0.2,0.2,0.2 };
-	player.lotate = 0;
-	player.prev_locate[0] = 0;
-	player.prev_locate[1] = 0;
-	player.x = 0;
-	player.z = 0;
+	for (int i = 0; i < 2; i++) {
+		player[i].PColor = { 1.0,1.0 * i ,0.0 };
+		player[i].Plocate = All_Box[19*i][19 * i].Blocate;
+		All_Box[19 * i][19 * i].Color = 1;
+		player[i].Plocate[1] = 0.0f;
+		player[i].Pscale = { 0.2,0.2,0.2 };
+		player[i].lotate = 180 * i;
+		player[i].prev_locate[0] = 0;
+		player[i].prev_locate[1] = 0;
+		player[i].x = 0;
+		player[i].z = 0;
+	}
 }
 
 void Box_crash(Player* p) {								// 박스 충돌체크
