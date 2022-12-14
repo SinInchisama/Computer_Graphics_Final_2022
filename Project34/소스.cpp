@@ -42,6 +42,7 @@ typedef struct Player {
 	glm::vec3 Pscale;
 	glm::vec3 Plocate;
 	glm::vec3 PColor;
+	glm::vec3 Color;
 	glm::vec3 Move;
 
 	glm::vec3 cameraPos;
@@ -61,6 +62,8 @@ typedef struct Player {
 
 	int player_number;  //캐릭터 고유 숫자 1p, 2p
 	bool stop; //시계 효과를 받았을 경우 true
+
+	int timer;  
 }Player;
 
 typedef struct Texture {
@@ -90,14 +93,18 @@ void Play_state();
 void Logo_state();
 void Create_item();
 
+void init();
+
 void Crash(int num, int inspection);
 int collide(Player* p, Box b, glm::mat4 TR);
 int item_collide(Player* p, Item i, glm::mat4 TR);
 
+void Item_zero(Player* p, Item i);
 void Item_one(Player* p,Item i);
 
 void Draw_time();
 void Draw_num(int num);
+void Whos_win();
 
 void defineVertexArrayObject();
 void Texture_init();
@@ -125,14 +132,19 @@ float BlockSpeed = 0.0f;
 
 bool ra, Drop = true,Game_over,Game_start;
 int xcount = 20, zcount = 20;
-time_t Now_time,start_time;
+int Itemcount = 0;
+time_t Now_time,start_time, Creat_time;
+
 float yz = 0.0f;
 Box All_Box[20][20];
 Player player[2];
 Texture Timecount[2];
+Texture Score[3];
+
 Texture Worldbox[4];
 Texture Logo_texture;
-Item item[12];
+
+Item item[20];
 
 GLuint trianglePositionVertexBufferObjectID, triangleColorVertexBufferObjectID;
 GLuint triangleTextureCoordinateBufferObjectID;
@@ -154,6 +166,7 @@ glm::mat4 projection;
 
 GLuint texureId[11];
 GLuint Logo;
+GLuint Who_win[2];
 
 float vPositionList[] = {
 0.5f, 1.0f, 0.5f, // 앞 우측 상단
@@ -217,8 +230,7 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
 
 	Texture_init();
 
-	Boxinit(xcount, 20,zcount);
-	Create_item();
+	init(); 
 	glewInit();
 	InitShader();
 	InitBuffer();
@@ -418,6 +430,8 @@ char* filetobuf(const char* file)
 
 void TimerFunction(int value) {
 
+	time_t u = time(NULL);
+
 	if (!Game_over && Game_start) {
 		for (int i = 0; i < 2; i++) {
 			player[i].gravity = 0.05f;
@@ -450,11 +464,20 @@ void TimerFunction(int value) {
 				}
 			}
 
+			temp = 0;
+
 			for (int a = 0; a < 12; a++) {
 				if (item[a].View == true) {
 					temp = item_collide(&player[i], item[a], TR);
-					if (temp != -1)
+					if (temp != -1) {
+						if (item[a].Item_type == 0)
+							Item_zero(&player[i], item[a]);
+						else if (item[a].Item_type == 1)
+							Item_one(&player[i], item[a]);
+						
 						item[a].View = false;
+						break;
+					}
 				}
 			}
 			// 움직이고나서 해당 위치 블록 체크	(현재는 배열로 체크하는 중. 배열로 체크시 각 꼭짓점마다 이전 위치 저장해줘야할듯?)
@@ -462,10 +485,22 @@ void TimerFunction(int value) {
 		
 
 			player[i].Move[1] -= player[i].gravity;
+			if (player[i].Move[1] < -3.0) {
+				player[i].Plocate = All_Box[19 * i][19 * i].Blocate;
+				player[i].Plocate[1] = 0.0f;
+				player[i].Move = { 0.0f,0.0f,0.0f };
+			}
+			if (Now_time - player[i].timer >= 1) {
+				player[i].stop = false;
+			}
 
 		}
-		time_t u = time(NULL);
+		
 		Now_time = u - start_time;
+		if ((u - Creat_time )%5 == 0) {
+			item[Itemcount++].View = true;
+			Creat_time = u + 4;
+		}
 
 		if (Now_time == 60) 
 			Game_over = true;
@@ -481,24 +516,37 @@ GLvoid KeyDownboard(unsigned char key, int x, int y) {
 		if (key == 'a') {
 			Game_start = true;
 			start_time = time(NULL);
+			Creat_time = time(NULL);
 		}
 	}
 	else {
-		if (key == 'a') {
-			/*player[0].lotate += 10;		*/			// 플레이어 돌리기
-			player[1].x = -1;
+		if (!player[1].stop && player[1].Move[1] == 0) {
+			if (key == 'a') {
+				player[1].x = -1;
+			}
+			else if (key == 'd') {
+				player[1].x = +1;
+			}
+			else if (key == 'w') {
+				player[1].z = -1;
+			}
+			else if (key == 's') {
+				player[1].z = 1;
+			}
+			else if (key == 'q')
+				player[1].lotate += 10;
+			else if (key == 'e')
+				player[1].lotate -= 10;
 		}
-		else if (key == 'd') {
-			player[1].x = +1;
+		else if (!player[0].stop && player[0].Move[1] == 0) {
+			if (key == ',')
+				player[0].lotate += 10;
+			else if (key == '.')
+				player[0].lotate -= 10;
 		}
-		else if (key == 'w') {
-			player[1].z = -1;
-		}
-		else if (key == 's') {
-			player[1].z = 1;
-		}
-		else if (key == 'q')
-			player[0].lotate += 10;
+		else if (key == 'r' && Game_over)
+			init();
+			
 	}
 	glutPostRedisplay();
 }
@@ -519,7 +567,7 @@ GLvoid KeyUpboard(unsigned char key, int x, int y) {
 }
 
 void SKeyDownboard(int key, int x, int y) {
-	if (Game_start) {
+	if (Game_start && !player[0].stop && player[0].Move[1] == 0) {
 		switch (key) {
 		case GLUT_KEY_LEFT:
 			player[0].x = -1;
@@ -592,13 +640,12 @@ void Boxinit(int x, int y,int z) {				// 박스 갯수 추후에 25/25로 늘려도 박스 배
 		}
 
 	}
-
-	playerinit();
 }
 
 void playerinit() {
 	for (int i = 0; i < 2; i++) {
 		player[i].PColor = { 1.0,1.0 * i ,0.0 };
+		player[i].Color = { 0.5,1.0 * i,0.3 * i };
 		player[i].Plocate = All_Box[19*i][19 * i].Blocate;
 		All_Box[19 * i][19 * i].Bcolor = player[i].PColor;
 		player[i].Plocate[1] = 0.0f;
@@ -612,6 +659,8 @@ void playerinit() {
 		player[i].gravity = 0.01;
 		player[i].speed = 0.05f;
 		player[i].Occupy_box = 1;
+		player[i].player_number = i;
+		player[i].Move = { 0.0f,0.0f,0.0f };
 	}
 }
 
@@ -843,22 +892,35 @@ void Texture_init() {
 		Timecount[i].Ttr = Tx * Timecount[i].Ttr;
 	}
 
+	for (int i = 0; i < 3; i++) {
+		Score[i].Tlocate = glm::vec3(-0.66f + 0.66*i, 0.0f, 0.0f);
+		glm::mat4 Tx = glm::mat4(1.0f);
+		Score[i].Ttr = glm::mat4(1.0f);
+
+		Tx = glm::translate(Tx, Score[i].Tlocate);
+		Score[i].Ttr = Tx * Score[i].Ttr;
+	}
+	
+
 	glm::mat4 Tscale = glm::mat4(1.0f);
 	Tscale = glm::scale(Tscale, glm::vec3(2.0f, 2.0f, 2.0f));
 	Logo_texture.Ttr = Tscale * glm::mat4(1.0f);
 
-	Logo = CreateTexture("Logo_state.jpg");
-	texureId[0] = CreateTexture("0.jpg");
-	texureId[1] = CreateTexture("1.jpg");
-	texureId[2] = CreateTexture("2.jpg");
-	texureId[3] = CreateTexture("3.jpg");
-	texureId[4] = CreateTexture("4.jpg");
-	texureId[5] = CreateTexture("5.jpg");
-	texureId[6] = CreateTexture("6.jpg");
-	texureId[7] = CreateTexture("7.jpg");
-	texureId[8] = CreateTexture("8.jpg");
-	texureId[9] = CreateTexture("9.jpg");
-	texureId[10] = CreateTexture("comg_bg.jpg");
+	Logo = CreateTexture("Logo_state.png");
+	texureId[0] = CreateTexture("0.png");
+	texureId[1] = CreateTexture("1.png");
+	texureId[2] = CreateTexture("2.png");
+	texureId[3] = CreateTexture("3.png");
+	texureId[4] = CreateTexture("4.png");
+	texureId[5] = CreateTexture("5.png");
+	texureId[6] = CreateTexture("6.png");
+	texureId[7] = CreateTexture("7.png");
+	texureId[8] = CreateTexture("8.png");
+	texureId[9] = CreateTexture("9.png");
+	texureId[10] = CreateTexture("comg_bg.png");
+
+	Who_win[0] = CreateTexture("1_win.png");
+	Who_win[1] = CreateTexture("2_win.png");
 
 	Worldbox[0].Tlocate = glm::vec3(0.0f, 0.0f,8.0f);
 	Worldbox[1].Tlocate = glm::vec3(8.0f, 0.0f, 0.0f);
@@ -981,7 +1043,7 @@ void Draw_filed(BOOL View_draw_background) {
 		Scale = glm::mat4(1.0f);
 		glm::mat4 Rotate = glm::mat4(1.0f);
 
-		glUniform3f(modelLocation1, player[i].PColor[0], player[i].PColor[1], player[i].PColor[2]);
+		glUniform3f(modelLocation1, player[i].Color[0], player[i].Color[1], player[i].Color[2]);
 
 		Rotate = glm::rotate(Rotate, glm::radians(player[i].lotate), glm::vec3(0.0, 1.0, 0.0)); //--- z축에 대하여 회전 행렬
 		Scale = glm::scale(Scale, player[i].Pscale); //		플레이어
@@ -1026,11 +1088,14 @@ void Draw_num(int num) {
 
 	unsigned int modelLocation = glGetUniformLocation(s_program, "modelTransform"); //--- 버텍스 세이더에서 모델링 변환 위치 가져오기
 	glActiveTexture(GL_TEXTURE0);						// 뒷자리 숫자
-	glBindTexture(GL_TEXTURE_2D, texureId[num % 10]);
-	glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(Timecount[0].Ttr)); //--- modelTransform 변수에 변환 값 적용하기
+	glBindTexture(GL_TEXTURE_2D, texureId[int(num / 100)]);
+	glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(Score[0].Ttr)); //--- modelTransform 변수에 변환 값 적용하기
 	glDrawArrays(GL_TRIANGLES, 0, 6);
-	glBindTexture(GL_TEXTURE_2D, texureId[num / 10]);			// 앞자리 숫자
-	glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(Timecount[1].Ttr)); //--- modelTransform 변수에 변환 값 적용하기
+	glBindTexture(GL_TEXTURE_2D, texureId[int(num / 10) % 10]);			// 앞자리 숫자
+	glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(Score[1].Ttr)); //--- modelTransform 변수에 변환 값 적용하기
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindTexture(GL_TEXTURE_2D, texureId[num % 10]);			// 앞자리 숫자
+	glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(Score[2].Ttr)); //--- modelTransform 변수에 변환 값 적용하기
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
@@ -1103,11 +1168,16 @@ void Play_state() {
 	glViewport(530, 500, 200, 200);
 	Draw_time();
 
-	glViewport(100, 550, 100, 100);
+	glViewport(100, 550, 150, 150);
 	Draw_num(player[0].Occupy_box);
 
-	glViewport(1000, 550, 100, 100);
+	glViewport(1000, 550, 150, 150);
 	Draw_num(player[1].Occupy_box);
+
+	if (Game_over) {
+		glViewport(530, 300, 200, 200);
+		Whos_win();
+	}
 }
 
 void Logo_state() {
@@ -1133,18 +1203,47 @@ void Logo_state() {
 	glViewport(0,0,1260,700);
 }
 
+void Whos_win() {
+	glUseProgram(triangleShaderProgramID);
+	glBindVertexArray(triangleVertexArrayObject);
+
+	glUniform1i(glGetUniformLocation(triangleShaderProgramID, "tex"), 0);
+
+	glm::mat4 projection = glm::mat4(1.0f);
+	unsigned int projectionLocation = glGetUniformLocation(triangleShaderProgramID, "projectionTransform"); //--- 투영 변환 값 설정
+	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &projection[0][0]);
+
+	glm::mat4 view = glm::mat4(1.0f);
+	unsigned int viewLocation = glGetUniformLocation(triangleShaderProgramID, "viewTransform");
+	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
+
+	unsigned int modelLocation = glGetUniformLocation(s_program, "modelTransform"); //--- 버텍스 세이더에서 모델링 변환 위치 가져오기
+	glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(Logo_texture.Ttr)); //--- modelTransform 변수에 변환 값 적용하기
+	glActiveTexture(GL_TEXTURE0);						// 뒷자리 숫자
+	if(player[0].Occupy_box>player[1].Occupy_box)
+		glBindTexture(GL_TEXTURE_2D, Who_win[0]);
+	else
+		glBindTexture(GL_TEXTURE_2D, Who_win[1]);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
 void Create_item() {
 	srand(time(NULL));
 
 	glm::vec3 bound_scale = { 0.3f / 2, yScale, 0.3f / 2 };
 
-	for (int i = 0; i < 12; i++) {
+	for (int i = 0; i < 20; i++) {
 		int x = rand() % 20;
 		int y = rand() % 20;
 		item[i].Ilocate = All_Box[x][y].Blocate;
 		item[i].Iscale = glm::vec3{0.3f,0.3f,0.3f};
 		item[i].Ilocate[1] =  0.0f;
-		item[i].Icolor = glm::vec3{ 1.0f,0.0f,1.0f };
+		item[i].Item_type = rand()%2;
+		
+		if (item[i].Item_type == 0)
+			item[i].Icolor = glm::vec3{ 1.0f,0.0f,1.0f };
+		else if (item[i].Item_type == 1)
+			item[i].Icolor = glm::vec3{ 1.0f,1.0f,1.0f };
 
 		glm::mat4 TR = glm::mat4(1.0f);
 		glm::mat4 Tx = glm::mat4(1.0f);
@@ -1158,7 +1257,9 @@ void Create_item() {
 		item[i].Bounding_box[0] = {(item[i].Ilocate - bound_scale), 1.f};
 		item[i].Bounding_box[1] = { (item[i].Ilocate + bound_scale), 1.f };
 
-		item[i].View = true;
+		
+
+		item[i].View = false;
 	}
 }
 
@@ -1180,6 +1281,46 @@ int item_collide(Player* p, Item i, glm::mat4 TR)
 	return -1;
 }
 
-//void Item_one(Player* p, Item i) {
-//
-//}
+void Item_zero(Player* p, Item i) {
+	int enermy = 0;
+	if (p->player_number == 0) {
+		enermy = 1;
+	}
+	else {
+		enermy = 0;
+	}
+	player[enermy].stop = true;
+	player[enermy].timer = Now_time;
+	player[enermy].x = 0;
+	player[enermy].z = 0;
+}
+
+void Item_one(Player* p, Item i) {
+	srand(time(NULL));
+	for (int i = 0; i < 2; i++) {
+		int indexX = rand() % 20;
+		int indexY = rand() % 20;
+		if (All_Box[indexX][indexY].Bcolor != p->PColor) {
+			if (All_Box[indexX][indexY].Bcolor != glm::vec3{ 0.0f,0.0f,0.0f }) {
+				if (p->player_number == 0)
+					player[1].Occupy_box -= 1;
+				else
+					player[0].Occupy_box -= 1;
+			}
+			All_Box[indexX][indexY].Bcolor = p->PColor;
+			p->Occupy_box += 1;
+		}
+		else
+			i -= 1;
+	}
+}
+
+void init() {
+	Boxinit(xcount, 20, zcount);
+	Create_item();
+	playerinit();
+	start_time = time(NULL);
+	Creat_time = time(NULL);
+	Game_over = false;
+	Itemcount = 0;
+}
