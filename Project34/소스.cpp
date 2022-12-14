@@ -94,6 +94,8 @@ void Crash(int num, int inspection);
 int collide(Player* p, Box b, glm::mat4 TR);
 int item_collide(Player* p, Item i, glm::mat4 TR);
 
+void Item_one(Player* p,Item i);
+
 void Draw_time();
 void Draw_num(int num);
 
@@ -1177,3 +1179,7 @@ int item_collide(Player* p, Item i, glm::mat4 TR)
 	}
 	return -1;
 }
+
+//void Item_one(Player* p, Item i) {
+//
+//}
