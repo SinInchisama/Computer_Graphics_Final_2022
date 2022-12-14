@@ -68,7 +68,6 @@ char* filetobuf(const char* file);
 void Boxinit(int x, int y);
 void Draw_filed(BOOL View_draw_background);
 void playerinit();
-void Box_crash(Player* p);
 void Player_camera(Player* p);
 void Play_state();
 
@@ -560,57 +559,6 @@ void playerinit() {
 	}
 }
 
-void Box_crash(Player* p) {								// 박스 충돌체크
-	glm::mat4 TR = glm::mat4(1.0f);
-	glm::mat4 Tx = glm::mat4(1.0f);
-	glm::mat4 Scale = glm::mat4(1.0f);
-	glm::mat4 Rotate = glm::mat4(1.0f);
-
-	Rotate = glm::rotate(Rotate, glm::radians(p->lotate), glm::vec3(0.0, 1.0, 0.0)); //--- z축에 대하여 회전 행렬
-	Scale = glm::scale(Scale, p->Pscale); //		플레이어
-	Tx = glm::translate(Tx, p->Plocate + p->Move);
-	TR = Tx * Rotate * Scale * TR;
-
-	glm::vec4 left_front = TR * glm::vec4(-0.5f, 0.0f, -0.5f, 1.0f);					// 플레이어 왼,오른,앞,뒤  원래 좌표를 각각 vec로 저장
-	glm::vec4 right_front = TR * glm::vec4(0.5f, 0.0f, -0.5f, 1.0f);
-	glm::vec4 left_back = TR * glm::vec4(-0.5f, 0.0f, 0.5f, 1.0f);
-	glm::vec4 right_back = TR * glm::vec4(0.5f, 0.0f, 0.5f, 1.0f);
-
-	left_front[0] += 5.0f + 0.01,left_front[2] += 5.0f + 0.01;							// 현재 좌표를 계산 후, 해당 좌표를 배열 인덱스로 변환 
-	left_front[0] = left_front[0] / xScale, left_front[2] = left_front[2] / zScale;
-
-	right_front[0] += 5.0f + 0.01, right_front[2] += 5.0f + 0.01;
-	right_front[0] = right_front[0] / xScale, right_front[2] = right_front[2] / zScale;
-
-	left_back[0] += 5.0f + 0.01, left_back[2] += 5.0f + 0.01;
-	left_back[0] = left_back[0] / xScale, left_back[2] = left_back[2] / zScale;
-
-	right_back[0] += 5.0f + 0.01, right_back[2] += 5.0f + 0.01;
-	right_back[0] = right_back[0] / xScale, right_back[2] = right_back[2] / zScale;
-
-	
-	if (19 - int(left_front[2]) != p->prev_locate[0] || 19 - int(left_front[0]) != p->prev_locate[1]) {			// 각각의 변환된 인덱스가 이전 인덱스랑 같은지 비교 다르면, 이전 인덱스값 변경 후 해당 인덱스 박스 색 변경
-		All_Box[19 - int(left_front[2])][19 - int(left_front[0])].Color = 1;
-		p->prev_locate[0] = 19 - int(left_front[2]);
-		p->prev_locate[1] = 19 - int(left_front[0]);
-	}
-	if (19 - int(right_front[2]) != p->prev_locate[0] || 19 - int(right_front[0]) != p->prev_locate[1]) {
-		All_Box[19 - int(right_front[2])][19 - int(right_front[0])].Color = 1;
-		p->prev_locate[0] = 19 - int(right_front[2]);
-		p->prev_locate[1] = 19 - int(right_front[0]);
-	}
-	if (19 - int(left_back[2]) != p->prev_locate[0] || 19 - int(left_back[0]) != p->prev_locate[1]) {
-		All_Box[19 - int(left_back[2])][19 - int(left_back[0])].Color = 1;
-		p->prev_locate[0] = 19 - int(left_back[2]);
-		p->prev_locate[1] = 19 - int(left_back[0]);
-	}
-	if (19 - int(right_back[2]) != p->prev_locate[0] || 19 - int(right_back[0]) != p->prev_locate[1]) {
-		All_Box[19 - int(right_back[2])][19 - int(right_back[0])].Color = 1;
-		p->prev_locate[0] = 19 - int(right_back[2]);
-		p->prev_locate[1] = 19 - int(right_back[0]);
-	}
-}
-
 void Player_camera(Player* p) {
 	glm::mat4 TR = glm::mat4(1.0f);
 	glm::mat4 Tx = glm::mat4(1.0f);
@@ -629,7 +577,7 @@ void Player_camera(Player* p) {
 	p->cameraDirection[2] = cos(glm::radians(p->lotate)) * -1.0;
 }
 
-
+// 이하 텍스쳐를 위한 함수들
 GLuint CreateTexture(char const* filename)
 {
 	FREE_IMAGE_FORMAT format = FreeImage_GetFileType(filename, 0);
@@ -740,7 +688,6 @@ GLuint CreateTexture(char const* filename)
 	return tempTextureID;
 }
 
-// 이하 텍스쳐를 위한 함수
 void defineVertexArrayObject() {
 
 	//#1
@@ -871,6 +818,8 @@ void Texture_init() {
 		Worldbox[i].Ttr = Tx * Rotate * Scale * Worldbox[i].Ttr;
 	}
 }
+// 여기까지
+
 
 int collide(Player* p, Box b, glm::mat4 TR)
 {
@@ -920,6 +869,7 @@ void Drawtime() {
 	glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(Timecount[1].Ttr)); //--- modelTransform 변수에 변환 값 적용하기
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 }
+
 // 필드를 그리는 함수
 void Draw_filed(BOOL View_draw_background) {
 	glUseProgram(s_program);
