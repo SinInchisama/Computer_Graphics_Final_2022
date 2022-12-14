@@ -33,7 +33,7 @@ typedef struct Item {
 	glm::vec3 Icolor;
 	glm::mat4 TR;
 
-	glm::vec4 IBounding_box[2];
+	glm::vec4 Bounding_box[2];
 	
 	bool View;
 };
@@ -58,6 +58,9 @@ typedef struct Player {
 
 	bool left_rotate;
 	bool right_rotate;
+
+	int player_number;  //캐릭터 고유 숫자 1p, 2p
+	bool stop; //시계 효과를 받았을 경우 true
 }Player;
 
 typedef struct Texture {
@@ -89,6 +92,7 @@ void Create_item();
 
 void Crash(int num, int inspection);
 int collide(Player* p, Box b, glm::mat4 TR);
+int item_collide(Player* p, Item i, glm::mat4 TR);
 
 void Draw_time();
 void Draw_num(int num);
@@ -441,6 +445,14 @@ void TimerFunction(int value) {
 					if (temp != -1) {
 						Crash(i, temp);
 					}
+				}
+			}
+
+			for (int a = 0; a < 12; a++) {
+				if (item[a].View == true) {
+					temp = item_collide(&player[i], item[a], TR);
+					if (temp != -1)
+						item[a].View = false;
 				}
 			}
 			// 움직이고나서 해당 위치 블록 체크	(현재는 배열로 체크하는 중. 배열로 체크시 각 꼭짓점마다 이전 위치 저장해줘야할듯?)
@@ -948,10 +960,12 @@ void Draw_filed(BOOL View_draw_background) {
 	}
 
 	for (int i = 0; i < 12; i++) {
-		glUniform3f(modelLocation1, item[i].Icolor[0], item[i].Icolor[1], item[i].Icolor[2]);
+		if (item[i].View) {
+			glUniform3f(modelLocation1, item[i].Icolor[0], item[i].Icolor[1], item[i].Icolor[2]);
 
-		glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(item[i].TR)); //--- modelTransform 변수에 변환 값 적용하기
-		glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, (GLvoid*)(sizeof(GLuint) * 0));
+			glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(item[i].TR)); //--- modelTransform 변수에 변환 값 적용하기
+			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, (GLvoid*)(sizeof(GLuint) * 0));
+		}
 	}
 
 	glm::mat4 TR = glm::mat4(1.0f);
@@ -1119,6 +1133,9 @@ void Logo_state() {
 
 void Create_item() {
 	srand(time(NULL));
+
+	glm::vec3 bound_scale = { 0.3f / 2, yScale, 0.3f / 2 };
+
 	for (int i = 0; i < 12; i++) {
 		int x = rand() % 20;
 		int y = rand() % 20;
@@ -1136,6 +1153,27 @@ void Create_item() {
 
 		item[i].TR = Tx * Scale * TR;
 
+		item[i].Bounding_box[0] = {(item[i].Ilocate - bound_scale), 1.f};
+		item[i].Bounding_box[1] = { (item[i].Ilocate + bound_scale), 1.f };
+
 		item[i].View = true;
 	}
+}
+
+int item_collide(Player* p, Item i, glm::mat4 TR)
+{
+	glm::vec4 a1 = TR * glm::vec4(-0.5f, 0.0f, -0.5f, 1.0f);                    // 플레이어 왼,오른,앞,뒤  원래 좌표를 각각 vec로 저장
+	glm::vec4 a2 = TR * glm::vec4(0.5f, 1.0f, 0.5f, 1.0f);
+	glm::vec4 a3 = TR * glm::vec4(-0.5f, 0.0f, 0.5f, 1.0f);
+	glm::vec4 a4 = TR * glm::vec4(0.5f, 1.0f, -0.5f, 1.0f);
+
+	glm::vec4 player_bounding_box[2] = { a1, a2 }; // 0이 min, 1이 max
+
+	if ((player_bounding_box[0][0] <= i.Bounding_box[1][0] && player_bounding_box[0][0] >= i.Bounding_box[0][0] && player_bounding_box[0][2] >= i.Bounding_box[0][2] && player_bounding_box[0][2] <= i.Bounding_box[1][2]) ||
+		(player_bounding_box[0][0] <= i.Bounding_box[1][0] && player_bounding_box[0][0] >= i.Bounding_box[0][0] && player_bounding_box[1][2] >= i.Bounding_box[0][2] && player_bounding_box[1][2] <= i.Bounding_box[1][2]) ||
+		(player_bounding_box[1][0] <= i.Bounding_box[1][0] && player_bounding_box[1][0] >= i.Bounding_box[0][0] && player_bounding_box[1][2] >= i.Bounding_box[0][2] && player_bounding_box[1][2] <= i.Bounding_box[1][2]) ||
+		(player_bounding_box[1][0] <= i.Bounding_box[1][0] && player_bounding_box[1][0] >= i.Bounding_box[0][0] && player_bounding_box[0][2] >= i.Bounding_box[0][2] && player_bounding_box[0][2] <= i.Bounding_box[1][2])) {
+		return p->player_number;
+	}
+	return -1;
 }
